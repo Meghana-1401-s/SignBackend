@@ -25,6 +25,14 @@ app.use(bodyParser.json());
 const PORT = process.env.PORT || 7760;
 const MONGO_URI = process.env.MONGO_URI;
 
+
+
+// Connect to MongoDB
+mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log("MongoDB connected"))
+    .catch((err) => console.error(err));
+
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 // Define the allowed origins for CORS
 const allowedOrigins = ['https://chat-frontend-sepia.vercel.app'];
 
@@ -43,18 +51,7 @@ app.use(cors({
 }));
 
 
-
-
-// Connect to MongoDB
-mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-    .then(() => console.log("MongoDB connected"))
-    .catch((err) => console.error(err));
-
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
     // To Store Uploads
-
-
     const upload = multer({
         storage: multer.diskStorage({
             destination: (req, file, cb) => {
@@ -91,8 +88,8 @@ const User = mongoose.model("User", userSchema);
 const transporter = nodemailer.createTransport({
     service: 'gmail', // You can change this to another email service (e.g., Outlook, Yahoo)
     auth: {
-        user: 'santhan.machavarapu@gmail.com', // Replace with your email
-        pass: 'ahyb taar sdzo sgay',   // Replace with your email password or app-specific password
+        user: process.env.EMAIL_USER, // Replace with your email
+        pass: process.env.EMAIL_PASS,   // Replace with your email password or app-specific password
     },
 });
 
@@ -108,7 +105,7 @@ app.post('/send-otp', (req, res) => {
 
     // Send OTP via email
     const mailOptions = {
-        from: 'santhan.machavarapu@gmail.com',  // Replace with your email
+        from: 'cheluvaraj1011@gmail.com',  // Replace with your email
         to: email,
         subject: 'Your OTP Code',
         text: `Your OTP code is ${otp}`,
@@ -176,29 +173,38 @@ app.post('/Newuser', async (req, res) => {
 
 // Login in to the Account
 
-// app.post("/login", async (req, res) => {
-//     console.log(req.body);
+app.post("/login", async (req, res) => {
+  console.log(req.body);
 
-//     // Fetch user data based on the email provided
-//     let fetchedData = await User.find({ email: req.body.email });
-//     console.log(fetchedData);
+  // Fetch user data based on the email provided
+  let fetchedData = await User.find({ email: req.body.email });
+  console.log(fetchedData);
 
-//     // Check if the user exists
-//     if (fetchedData.length > 0) {
-//         // Validate the password
-//         if (fetchedData[0].password === req.body.password) {
-//             // // Prepare data to send back
-//             // let dataToSend = {
-               
-//             // };
-//             res.json({ status: "Success", msg: "Login Successfully ✅", data: dataToSend });
-//         } else {
-//             res.json({ status: "Failed", msg: "Invalid Password ❌" });
-//         }
-//     } else {
-//         res.json({ status: "Failed", msg: "User Does Not Exist ❌" });
-//     }
-// });
+  // Check if the user exists
+  if (fetchedData.length > 0) {
+      // Compare the provided password with the stored hashed password
+      const isPasswordValid = await bcrypt.compare(req.body.password, fetchedData[0].password);
+
+      if (isPasswordValid) {
+          // Password is correct, proceed with successful login
+          let dataToSend = {
+              // Add any data you want to send back here, like user information, token, etc.
+              userId: fetchedData[0]._id,
+              email: fetchedData[0].email,
+              phoneNumber:fetchedData[0].phoneNumber,
+              name:fetchedData[0].username,
+              // You could also send a JWT token if you're using authentication tokens
+          };
+          res.json({ status: "Success", msg: "Login Successfully ✅", data: dataToSend });
+      } else {
+          // Invalid password
+          res.json({ status: "Failed", msg: "Invalid Password ❌" });
+      }
+  } else {
+      // User not found
+      res.json({ status: "Failed", msg: "User Does Not Exist ❌" });
+  }
+});
 
 let ItemsSchema = {
     text:{
@@ -245,11 +251,15 @@ app.post("/NewItem",upload.array("file"),async(req,res)=>{
 app.get('/ItemData/:category', async (req, res) => {
     const category = req.params.category;
     const searchText = req.query.search || ''; // Get search text from query parameters
+  
     try {
-      const items = await Item.find({
-        category: category,
-        text: { $regex: searchText, $options: 'i' }, // case-insensitive search
-      });
+      // Build the query object dynamically
+      const query = {
+        ...(category !== 'All' && { category }), // Include category filter only if it's not "all"
+        text: { $regex: searchText, $options: 'i' }, // Case-insensitive search
+      };
+  
+      const items = await Item.find(query);
   
       if (items.length === 0) {
         return res.status(404).json({ message: "No items found for this category and search text" });
@@ -262,7 +272,27 @@ app.get('/ItemData/:category', async (req, res) => {
     }
   });
   
-
+  app.get('/ItemDataByCategory/:category', async (req, res) => {
+    const category = req.params.category;
+  
+    try {
+      // If the category is "all", fetch all items; otherwise, filter by category
+      const query = category !== 'all' ? { category } : {};
+  
+      const items = await Item.find(query);
+  
+      if (items.length === 0) {
+        return res.status(404).json({ message: "No items found for this category" });
+      }
+  
+      res.status(200).json({ items });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Server Error", error });
+    }
+  });
+  
+  
 
 
 
