@@ -25,6 +25,24 @@ app.use(bodyParser.json());
 const PORT = process.env.PORT || 7760;
 const MONGO_URI = process.env.MONGO_URI;
 
+const allowedOrigins = [
+ 'https://chat-frontend-sepia.vercel.app/'
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+      callback(null, true);  // If origin is allowed, continue the request
+    } else {
+      callback(new Error('Not allowed by CORS'));  // Block the request
+    }
+  },
+  credentials: true,  // Allow cookies to be sent
+};
+
+app.use(cors(corsOptions));  // Apply the CORS middleware
+
+
 
 
 // Connect to MongoDB
