@@ -25,12 +25,22 @@ app.use(bodyParser.json());
 const PORT = process.env.PORT || 7760;
 const MONGO_URI = process.env.MONGO_URI;
 
-// Allow requests from your frontend domain
+// Define the allowed origins for CORS
+const allowedOrigins = ['https://chat-frontend-sepia.vercel.app'];
+
+// Use CORS middleware and configure it
 app.use(cors({
-  origin: 'https://chat-frontend-sepia.vercel.app/', // Change this to your frontend URL
-  methods: 'GET,POST,PUT,DELETE',
-  allowedHeaders: 'Content-Type,Authorization'
-})); 
+  origin: function (origin, callback) {
+    // Allow requests from the listed domains
+    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 
 
