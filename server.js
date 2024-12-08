@@ -35,7 +35,7 @@ mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 app.use(cors({
   origin: ['https://sign-frontend.vercel.app/', 'https://your-backend.onrender.com'],
-  methods: ['GET', 'POST'],
+  methods: ['GET', 'POST', 'DELETE'],
 }));
 
 
@@ -279,6 +279,24 @@ app.get('/ItemData/:category', async (req, res) => {
       res.status(500).json({ message: "Server Error", error });
     }
   });
+
+// API to delete an item by ID
+app.delete('/items/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+      const deletedItem = await Item.findByIdAndDelete(id);
+
+      if (!deletedItem) {
+          return res.status(404).json({ status: "Fail", message: "Item not found" });
+      }
+
+      res.status(200).json({ status: "Success", message: "Item deleted successfully", data: deletedItem });
+  } catch (error) {
+      console.error("Error deleting item:", error);
+      res.status(500).json({ status: "Fail", message: "Server error" });
+  }
+});
   
   
 
