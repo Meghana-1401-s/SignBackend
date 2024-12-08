@@ -34,7 +34,7 @@ mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
 
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 // Define the allowed origins for CORS
-const allowedOrigins = ['https://chat-frontend-sepia.vercel.app'];
+const allowedOrigins = ['https://sign-frontend.vercel.app/'];
 
 // Use CORS middleware and configure it
 app.use(cors({
