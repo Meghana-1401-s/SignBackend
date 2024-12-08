@@ -33,21 +33,9 @@ mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
     .catch((err) => console.error(err));
 
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-// Define the allowed origins for CORS
-const allowedOrigins = ['https://sign-frontend.vercel.app/'];
-
-// Use CORS middleware and configure it
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests from the listed domains
-    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: ['https://sign-frontend.vercel.app/', 'https://your-backend.onrender.com'],
   methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 
