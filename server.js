@@ -5,93 +5,95 @@ const dotenv = require("dotenv");
 const bcrypt = require("bcrypt");
 const nodemailer = require('nodemailer');
 const bodyParser = require('body-parser');
-const crypto = require('crypto'); // To generate random OTPs
+const crypto = require('crypto');  // To generate random OTPs
+
 const jwt = require("jsonwebtoken");
+const { Server } = require("socket.io");
+const { type } = require("os");
 const path = require('path');
 const multer = require('multer');
-const fs = require('fs');
 
 dotenv.config();
 
 const app = express();
 app.use(express.json());
-app.use(cors());
-
 // Middleware to serve static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(cors());
 app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 7760;
 const MONGO_URI = process.env.MONGO_URI;
 
-// Ensure the uploads directory exists
-const uploadsPath = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsPath)) {
-    fs.mkdirSync(uploadsPath, { recursive: true });
-}
 
-// Multer storage configuration
-const upload = multer({
-    storage: multer.diskStorage({
-        destination: (req, file, cb) => {
-            cb(null, uploadsPath); // Save files to the 'uploads' folder
-        },
-        filename: (req, file, cb) => {
-            cb(null, Date.now() + path.extname(file.originalname));
-        },
-    }),
-    fileFilter: (req, file, cb) => {
-        const filetypes = /jpeg|jpg|png|gif|bmp|webp|tiff|svg|mp4|mov|avi|mkv|flv|wmv|webm|mpg|mpeg|3gp/; // Common formats
-        const mimetype = filetypes.test(file.mimetype);
-        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-
-        if (mimetype && extname) {
-            return cb(null, true);
-        }
-        cb(new Error('Invalid file type. Only images and videos are allowed.'));
-    },
-});
 
 // Connect to MongoDB
 mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
     .then(() => console.log("MongoDB connected"))
     .catch((err) => console.error(err));
 
-// CORS Configuration
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 app.use(cors({
-    origin: ['https://sign-frontend.vercel.app', 'https://your-backend.onrender.com'],
-    methods: ['GET', 'POST', 'DELETE'],
+  origin: ['https://sign-frontend.vercel.app/', 'https://your-backend.onrender.com'],
+  methods: ['GET', 'POST', 'DELETE'],
 }));
 
-// Define User Schema
+
+    // To Store Uploads
+    const upload = multer({
+        storage: multer.diskStorage({
+            destination: (req, file, cb) => {
+                cb(null, 'uploads/');
+            },
+            filename: (req, file, cb) => {
+                cb(null, Date.now() + path.extname(file.originalname));
+            }
+        }),
+        fileFilter: (req, file, cb) => {
+            const filetypes = /jpeg|jpg|png|gif|bmp|webp|tiff|svg|mp4|mov|avi|mkv|flv|wmv|webm|mpg|mpeg|3gp/;  // All common image and video formats
+            const mimetype = filetypes.test(file.mimetype);
+            const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+    
+            if (mimetype && extname) {
+                return cb(null, true);
+            }
+            cb(new Error('Invalid file type. Only images and videos are allowed.'));
+        }
+    });
+
+// User Schema
 const userSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
-    phoneNumber: { type: String },
+    email:{type:String,required:true,unique: true},
+    phoneNumber:{type:String}
 });
 
 const User = mongoose.model("User", userSchema);
 
+
 // Setup Nodemailer Transporter
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    service: 'gmail', // You can change this to another email service (e.g., Outlook, Yahoo)
     auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+        user: process.env.EMAIL_USER, // Replace with your email
+        pass: process.env.EMAIL_PASS,   // Replace with your email password or app-specific password
     },
 });
 
-// OTP Route
+// Route to send OTP
 app.post('/send-otp', (req, res) => {
-    const { email } = req.body;
+    const { email } = req.body; // Get email from client
     if (!email) {
         return res.status(400).send('Email is required');
     }
 
+    // Generate a random 6-digit OTP
     const otp = crypto.randomInt(100000, 999999);
+
+    // Send OTP via email
     const mailOptions = {
-        from: 'cheluvaraj1011@gmail.com',
+        from: 'cheluvaraj1011@gmail.com',  // Replace with your email
         to: email,
         subject: 'Your OTP Code',
         text: `Your OTP code is ${otp}`,
@@ -103,106 +105,201 @@ app.post('/send-otp', (req, res) => {
             return res.status(500).send('Error sending OTP');
         } else {
             console.log('OTP sent: ' + info.response);
-            return res.status(200).send({ otp, message: 'OTP sent successfully' });
+            return res.status(200).send({ otp, message: 'OTP sent successfully' });  // Send OTP back to verify
         }
     });
 });
 
-// OTP Verification
 app.post('/verify-otp', (req, res) => {
     const { enteredOtp, generatedOtp } = req.body;
-
+  
+    console.log('Received OTP:', req.body); // Log the entire request body
     if (String(enteredOtp) === String(generatedOtp)) {
-        return res.status(200).send('OTP verified successfully');
+      return res.status(200).send('OTP verified successfully');
     } else {
-        return res.status(400).send('Invalid OTP');
+      return res.status(400).send('Invalid OTP');
     }
-});
+  });
 
-// Create New User
+  // POST API to create a new user
 app.post('/Newuser', async (req, res) => {
     const { username, password, email, phoneNumber } = req.body;
-
+  console.log(req.body)
+    // Validate required fields
     if (!username || !password || !email) {
-        return res.status(400).json({ message: 'Username, password, and email are required.' });
+      return res.status(400).json({ message: 'Username, password, and email are required.' });
     }
-
+  
     try {
-        const existingUser = await User.findOne({ $or: [{ username }, { email }] });
-        if (existingUser) {
-            return res.status(400).json({ message: 'User with this username or email already exists.' });
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = new User({ username, password: hashedPassword, email, phoneNumber });
-        await newUser.save();
-
-        res.status(201).json({ message: 'User created successfully!', user: newUser });
+      // Check if the user already exists
+      const existingUser = await User.findOne({ $or: [{ username }, { email }] });
+      if (existingUser) {
+        return res.status(400).json({ message: 'User with this username or email already exists.' });
+      }
+  
+      // Hash password before saving
+      const hashedPassword = await bcrypt.hash(password, 10);
+  
+      // Create a new user
+      const newUser = new User({
+        username,
+        password: hashedPassword,
+        email,
+        phoneNumber,
+      });
+  
+      // Save the user to the database
+      await newUser.save();
+  
+      // Send response
+      res.status(201).json({ message: 'User created successfully!', user: newUser });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error, please try again later.' });
+      console.error(error);
+      res.status(500).json({ message: 'Server error, please try again later.' });
     }
-});
+  });
 
-// Login
+// Login in to the Account
+
 app.post("/login", async (req, res) => {
-    const { email, password } = req.body;
+  console.log(req.body);
 
-    try {
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(400).json({ status: "Failed", msg: "User Does Not Exist ❌" });
-        }
+  // Fetch user data based on the email provided
+  let fetchedData = await User.find({ email: req.body.email });
+  console.log(fetchedData);
 
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-        if (!isPasswordValid) {
-            return res.status(400).json({ status: "Failed", msg: "Invalid Password ❌" });
-        }
+  // Check if the user exists
+  if (fetchedData.length > 0) {
+      // Compare the provided password with the stored hashed password
+      const isPasswordValid = await bcrypt.compare(req.body.password, fetchedData[0].password);
 
-        res.status(200).json({ status: "Success", msg: "Login Successfully ✅", data: { email: user.email, username: user.username } });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ status: "Failed", msg: "Server error ❌" });
+      if (isPasswordValid) {
+          // Password is correct, proceed with successful login
+          let dataToSend = {
+              // Add any data you want to send back here, like user information, token, etc.
+              userId: fetchedData[0]._id,
+              email: fetchedData[0].email,
+              phoneNumber:fetchedData[0].phoneNumber,
+              name:fetchedData[0].username,
+              // You could also send a JWT token if you're using authentication tokens
+          };
+          res.json({ status: "Success", msg: "Login Successfully ✅", data: dataToSend });
+      } else {
+          // Invalid password
+          res.json({ status: "Failed", msg: "Invalid Password ❌" });
+      }
+  } else {
+      // User not found
+      res.json({ status: "Failed", msg: "User Does Not Exist ❌" });
+  }
+});
+
+let ItemsSchema = {
+    text:{
+        type:String,
+        required:true
+    },
+    category:{
+        type:String,
+        required:true
+    },
+    file:{
+        type:String,
+        required:true
     }
-});
+}
 
-// Items Schema
-const ItemsSchema = new mongoose.Schema({
-    text: { type: String, required: true },
-    category: { type: String, required: true },
-    file: { type: String, required: true },
-});
+let Item = mongoose.model("Item",ItemsSchema);
 
-const Item = mongoose.model("Item", ItemsSchema);
+app.post("/NewItem",upload.array("file"),async(req,res)=>{
 
-// Add New Item
-app.post("/NewItem", upload.array("file"), async (req, res) => {
-    try {
-        const { text, category } = req.body;
-        const files = req.files;
+    let ItemArr=await Item.find().and({text:req.body.text});
+    if (ItemArr.length>0) {
+        res.json({status:"failure",msg:"Text already Exist❌"});
+    }else{
+    try{
+        let newItem = new Item({          
+            
+            file:req.files[0].path,
+            text:req.body.text,
+            category:req.body.category,
+            
 
-        if (!text || !category || !files || files.length === 0) {
-            return res.status(400).json({ status: "Failed", msg: "Missing required fields" });
-        }
-
-        const existingItem = await Item.findOne({ text });
-        if (existingItem) {
-            return res.status(400).json({ status: "Failed", msg: "Text already exists ❌" });
-        }
-
-        const newItem = new Item({
-            text,
-            category,
-            file: files[0].path,
         });
-
         await newItem.save();
-        res.status(201).json({ status: "Success", msg: "Item added successfully ✅" });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ status: "Failed", error, msg: "Server error ❌" });
+        res.json({status:"Success",msg:" Item Added Successfully✅"});
+    }catch(error){
+        res.json({status:"Failed",error:error,msg:"Invalid Details ❌"});
+        console.log(error)
     }
-});
+    }
+}
+);
 
-// Start the server
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.get('/ItemData/:category', async (req, res) => {
+    const category = req.params.category;
+    const searchText = req.query.search || ''; // Get search text from query parameters
+  
+    try {
+      // Build the query object dynamically
+      const query = {
+        ...(category !== 'All' && { category }), // Include category filter only if it's not "all"
+        text: { $regex: searchText, $options: 'i' }, // Case-insensitive search
+      };
+  
+      const items = await Item.find(query);
+  
+      if (items.length === 0) {
+        return res.status(404).json({ message: "No items found for this category and search text" });
+      }
+  
+      res.status(200).json({ items });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Server Error", error });
+    }
+  });
+  
+  app.get('/ItemDataByCategory/:category', async (req, res) => {
+    const category = req.params.category;
+  
+    try {
+      // If the category is "all", fetch all items; otherwise, filter by category
+      const query = category !== 'all' ? { category } : {};
+  
+      const items = await Item.find(query);
+  
+      if (items.length === 0) {
+        return res.status(404).json({ message: "No items found for this category" });
+      }
+  
+      res.status(200).json({ items });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Server Error", error });
+    }
+  });
+
+// API to delete an item by ID
+app.delete('/items/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+      const deletedItem = await Item.findByIdAndDelete(id);
+
+      if (!deletedItem) {
+          return res.status(404).json({ status: "Fail", message: "Item not found" });
+      }
+
+      res.status(200).json({ status: "Success", message: "Item deleted successfully", data: deletedItem });
+  } catch (error) {
+      console.error("Error deleting item:", error);
+      res.status(500).json({ status: "Fail", message: "Server error" });
+  }
+});
+  
+  
+
+
+
+
