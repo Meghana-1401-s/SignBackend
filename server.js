@@ -6,7 +6,6 @@ const bcrypt = require("bcrypt");
 const nodemailer = require('nodemailer');
 const bodyParser = require('body-parser');
 const crypto = require('crypto');  // To generate random OTPs
-
 const jwt = require("jsonwebtoken");
 const { Server } = require("socket.io");
 const { type } = require("os");
