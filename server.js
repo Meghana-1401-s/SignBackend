@@ -34,7 +34,7 @@ mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 app.use(cors({
   origin: ['https://sign-frontend.vercel.app/', 'https://your-backend.onrender.com'],
-  methods: ['GET', 'POST', 'DELETE'],
+  methods: ['GET', 'POST', 'DELETE', 'PUT'],
 }));
 
 
@@ -296,7 +296,31 @@ app.delete('/items/:id', async (req, res) => {
       res.status(500).json({ status: "Fail", message: "Server error" });
   }
 });
-  
+
+app.put('/update-password', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Email and password are required.' });
+  }
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+      // Hash password before saving
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+    user.password = hashedPassword; // Hash the password in production
+    await user.save();
+
+    res.status(200).json({ message: 'Password updated successfully ✅' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating password.' });
+  }
+});
   
 
 
