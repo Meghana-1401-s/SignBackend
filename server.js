@@ -33,7 +33,7 @@ mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
 
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 app.use(cors({
-  origin: ['https://sign-frontend.vercel.app/', 'https://your-backend.onrender.com'],
+  origin: ['https://sign-frontend-kappa.vercel.app/', 'https://signbackend-9pt6.onrender.com'],
   methods: ['GET', 'POST', 'DELETE', 'PUT'],
 }));
 
